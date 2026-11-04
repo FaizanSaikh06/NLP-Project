@@ -1,0 +1,109 @@
+pip install nltk streamlit pandas
+import streamlit as st
+import nltk
+import re
+from nltk.tokenize import sent_tokenize, word_tokenize
+from nltk.corpus import stopwords
+from collections import Counter
+
+# Download required NLP resources
+nltk.download('punkt')
+nltk.download('stopwords')
+nltk.download('punkt_tab')
+
+# Text preprocessing
+def preprocess_text(text):
+    text = re.sub(r'[^a-zA-Z\s.]', '', text)
+    return text.lower()
+
+# News summarization function
+def summarize_news(text, num_sentences=3):
+
+    text = preprocess_text(text)
+
+    sentences = sent_tokenize(text)
+
+    stop_words = set(stopwords.words('english'))
+
+    words = word_tokenize(text)
+
+    filtered_words = [
+        word for word in words
+        if word not in stop_words and word.isalpha()
+    ]
+
+    # Calculate word frequency
+    word_frequency = Counter(filtered_words)
+
+    # Normalize frequency
+    max_frequency = max(word_frequency.values(), default=1)
+
+    for word in word_frequency:
+        word_frequency[word] /= max_frequency
+
+    # Calculate sentence scores
+    sentence_scores = {}
+
+    for sentence in sentences:
+        sentence_words = word_tokenize(sentence)
+
+        score = 0
+
+        for word in sentence_words:
+            if word in word_frequency:
+                score += word_frequency[word]
+
+        sentence_scores[sentence] = score
+
+    # Select top sentences
+    ranked_sentences = sorted(
+        sentence_scores,
+        key=sentence_scores.get,
+        reverse=True
+    )
+
+    selected_sentences = ranked_sentences[:num_sentences]
+
+    # Maintain original sentence order
+    summary = [
+        sentence for sentence in sentences
+        if sentence in selected_sentences
+    ]
+
+    return " ".join(summary)
+
+
+# Streamlit interface
+st.title("NLP Based News Summarizer")
+
+st.write("Enter your news article below:")
+
+news_text = st.text_area(
+    "News Article",
+    height=250
+)
+
+num_sentences = st.slider(
+    "Summary Length",
+    min_value=1,
+    max_value=10,
+    value=3
+)
+
+if st.button("Summarize News"):
+
+    if news_text.strip():
+
+        summary = summarize_news(
+            news_text,
+            num_sentences
+        )
+
+        st.subheader("Generated News Summary")
+
+        st.write(summary)
+
+        st.success("News summarized successfully!")
+
+    else:
+        st.warning("Please enter a news article.")
